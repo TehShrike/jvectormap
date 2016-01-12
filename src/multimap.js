@@ -30,7 +30,6 @@ jvm.MultiMap = function(params) {
   this.params.main.multiMapLevel = 0;
   this.history = [ this.addMap(this.params.main.map, this.params.main) ];
   this.defaultProjection = this.history[0].mapData.projection.type;
-  this.mapsLoaded = {};
 
   this.params.container.css({position: 'relative'});
   this.backButton = jvm.$('<div/>').addClass('jvectormap-goback').text('Back').appendTo(this.params.container);
@@ -69,27 +68,21 @@ jvm.MultiMap.prototype = {
   },
 
   downloadMap: function(code){
-    var that = this,
-        deferred = jvm.$.Deferred();
-
-    if (!this.mapsLoaded[code]) {
-      jvm.$.get(this.params.mapUrlByCode(code, this)).then(function(){
-        that.mapsLoaded[code] = true;
-        deferred.resolve();
-      }, function(){
-        deferred.reject();
-      });
-    } else {
-      deferred.resolve();
-    }
-    return deferred;
+    return jvm.$.get(this.params.mapUrlByCode(code, this));
   },
 
-  drillDown: function(name, code){
+  drillDown: function(name, code, config){
+    var mapIsHereAlready = !!jvm.Map.maps[this.params.mapNameByCode(code, this)]
+    var mapCanBeDownloaded = !!this.params.mapUrlByCode(code, this)
+
+    if (!mapIsHereAlready && !mapCanBeDownloaded) {
+        return;
+    }
+
     var currentMap = this.history[this.history.length - 1],
         that = this,
-        focusPromise = currentMap.setFocus({region: code, animate: true}),
-        downloadPromise = this.downloadMap(code);
+        downloadPromise = mapIsHereAlready ? jvm.$.Deferred().resolve() : this.downloadMap(code)
+        focusPromise = currentMap.setFocus({region: code, animate: true});
 
     focusPromise.then(function(){
       if (downloadPromise.state() === 'pending') {
